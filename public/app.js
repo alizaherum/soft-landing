@@ -1,5 +1,6 @@
 const linkButton = document.getElementById('link-button');
 const statusEl = document.getElementById('status');
+const statusCard = document.getElementById('status-card');
 const balanceContainer = document.getElementById('balance-container');
 const balanceList = document.getElementById('balance-list');
 
@@ -48,20 +49,33 @@ function renderBalances(accounts) {
   balanceContainer.classList.remove('hidden');
 }
 
+async function revealBalance() {
+  statusCard.disabled = true;
+  try {
+    const accounts = await fetchBalance();
+    renderBalances(accounts);
+    statusCard.classList.add('hidden');
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = 'Could not load your balance. Tap the status again to retry.';
+    statusCard.disabled = false;
+  }
+}
+
+statusCard.addEventListener('click', revealBalance);
+
 function buildHandler(linkToken, receivedRedirectUri) {
   return Plaid.create({
     token: linkToken,
     receivedRedirectUri,
     onSuccess: async (publicToken) => {
       try {
-        statusEl.textContent = 'Fetching your balance…';
+        statusEl.textContent = '';
         await exchangePublicToken(publicToken);
-        const accounts = await fetchBalance();
-        renderBalances(accounts);
-        statusEl.textContent = 'Connected';
+        statusCard.classList.remove('hidden');
       } catch (err) {
         console.error(err);
-        statusEl.textContent = 'Something went wrong while fetching your balance.';
+        statusEl.textContent = 'Something went wrong while connecting your bank.';
       } finally {
         linkButton.disabled = false;
         sessionStorage.removeItem('plaid_link_token');
@@ -83,6 +97,8 @@ function buildHandler(linkToken, receivedRedirectUri) {
 linkButton.addEventListener('click', async () => {
   linkButton.disabled = true;
   statusEl.textContent = 'Connecting…';
+  statusCard.classList.add('hidden');
+  balanceContainer.classList.add('hidden');
 
   try {
     const linkToken = await createLinkToken();
