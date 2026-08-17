@@ -1,0 +1,15 @@
+{
+  "name": "e-commerce-risk-analytics-platform",
+  "version": "1.0.0",
+  "description": "Comprehensive data solution that analyzes seller behavior and transaction data to identify high-risk or fraudulent sellers, predict customer satisfaction trends, and optimize operational decisions.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "plaid": "^45.0.0"
+  }
+}
