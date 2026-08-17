@@ -30,7 +30,7 @@ app.post('/api/create_link_token', async (req, res) => {
       user: { client_user_id: `user-${Date.now()}` },
       client_name: 'Soft Landing',
       products: [Products.Auth],
-      country_codes: [CountryCode.Us],
+      country_codes: [CountryCode.Gb],
       language: 'en',
     });
     res.json({ link_token: response.data.link_token });
