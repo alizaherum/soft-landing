@@ -11,12 +11,28 @@
     <h1>Soft Landing</h1>
     <p class="subtitle">Connect your bank to see where you stand.</p>
 
+    <details id="threshold-settings">
+      <summary>Set your comfort levels</summary>
+      <div class="threshold-form">
+        <label>
+          Low is below £
+          <input type="number" id="low-threshold" min="0" step="1" inputmode="numeric" />
+        </label>
+        <label>
+          Comfortable is above £
+          <input type="number" id="comfortable-threshold" min="0" step="1" inputmode="numeric" />
+        </label>
+        <button id="save-thresholds" type="button">Save</button>
+        <p id="threshold-feedback" role="status"></p>
+      </div>
+    </details>
+
     <button id="link-button">Connect your bank</button>
     <p id="status" role="status"></p>
 
     <button id="status-card" class="hidden" type="button">
       <span class="status-dot"></span>
-      Connected — tap to view balance
+      <span class="status-label">Connected — tap to view balance</span>
     </button>
 
     <section id="balance-container" class="hidden">

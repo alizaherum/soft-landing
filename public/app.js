@@ -1,8 +1,59 @@
 const linkButton = document.getElementById('link-button');
 const statusEl = document.getElementById('status');
 const statusCard = document.getElementById('status-card');
+const statusLabel = statusCard.querySelector('.status-label');
 const balanceContainer = document.getElementById('balance-container');
 const balanceList = document.getElementById('balance-list');
+
+const lowThresholdInput = document.getElementById('low-threshold');
+const comfortableThresholdInput = document.getElementById('comfortable-threshold');
+const saveThresholdsButton = document.getElementById('save-thresholds');
+const thresholdFeedback = document.getElementById('threshold-feedback');
+
+const THRESHOLDS_KEY = 'soft_landing_thresholds';
+const DEFAULT_THRESHOLDS = { low: 100, comfortable: 500 };
+
+let latestAccounts = null;
+
+function getThresholds() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(THRESHOLDS_KEY));
+    if (stored && Number.isFinite(stored.low) && Number.isFinite(stored.comfortable)) {
+      return stored;
+    }
+  } catch (err) {
+    // fall through to defaults
+  }
+  return DEFAULT_THRESHOLDS;
+}
+
+function applyThresholdsToInputs(thresholds) {
+  lowThresholdInput.value = thresholds.low;
+  comfortableThresholdInput.value = thresholds.comfortable;
+}
+
+applyThresholdsToInputs(getThresholds());
+
+saveThresholdsButton.addEventListener('click', () => {
+  const low = Number(lowThresholdInput.value);
+  const comfortable = Number(comfortableThresholdInput.value);
+
+  if (!Number.isFinite(low) || !Number.isFinite(comfortable) || low < 0 || comfortable < 0) {
+    thresholdFeedback.textContent = 'Please enter valid amounts.';
+    return;
+  }
+  if (low >= comfortable) {
+    thresholdFeedback.textContent = '"Low" must be less than "Comfortable".';
+    return;
+  }
+
+  localStorage.setItem(THRESHOLDS_KEY, JSON.stringify({ low, comfortable }));
+  thresholdFeedback.textContent = 'Saved.';
+
+  if (latestAccounts) {
+    updateStatusCard(latestAccounts);
+  }
+});
 
 async function createLinkToken() {
   const response = await fetch('/api/create_link_token', { method: 'POST' });
@@ -35,6 +86,35 @@ function formatCurrency(amount, isoCurrencyCode) {
   }).format(amount);
 }
 
+function totalAvailableBalance(accounts) {
+  return accounts.reduce((sum, account) => {
+    const amount = account.balances.available ?? account.balances.current ?? 0;
+    return sum + amount;
+  }, 0);
+}
+
+function classifyBalance(total, thresholds) {
+  if (total < thresholds.low) return 'low';
+  if (total < thresholds.comfortable) return 'tight';
+  return 'comfortable';
+}
+
+const STATUS_TEXT = {
+  low: 'Low',
+  tight: 'Tight',
+  comfortable: 'Comfortable',
+};
+
+function updateStatusCard(accounts) {
+  const total = totalAvailableBalance(accounts);
+  const status = classifyBalance(total, getThresholds());
+
+  statusCard.classList.remove('status-low', 'status-tight', 'status-comfortable');
+  statusCard.classList.add(`status-${status}`);
+  statusLabel.textContent = `${STATUS_TEXT[status]} — tap to view balance`;
+  statusCard.classList.remove('hidden');
+}
+
 function renderBalances(accounts) {
   balanceList.innerHTML = '';
   accounts.forEach((account) => {
@@ -49,20 +129,11 @@ function renderBalances(accounts) {
   balanceContainer.classList.remove('hidden');
 }
 
-async function revealBalance() {
-  statusCard.disabled = true;
-  try {
-    const accounts = await fetchBalance();
-    renderBalances(accounts);
-    statusCard.classList.add('hidden');
-  } catch (err) {
-    console.error(err);
-    statusEl.textContent = 'Could not load your balance. Tap the status again to retry.';
-    statusCard.disabled = false;
-  }
-}
-
-statusCard.addEventListener('click', revealBalance);
+statusCard.addEventListener('click', () => {
+  if (!latestAccounts) return;
+  renderBalances(latestAccounts);
+  statusCard.classList.add('hidden');
+});
 
 function buildHandler(linkToken, receivedRedirectUri) {
   return Plaid.create({
@@ -72,7 +143,8 @@ function buildHandler(linkToken, receivedRedirectUri) {
       try {
         statusEl.textContent = '';
         await exchangePublicToken(publicToken);
-        statusCard.classList.remove('hidden');
+        latestAccounts = await fetchBalance();
+        updateStatusCard(latestAccounts);
       } catch (err) {
         console.error(err);
         statusEl.textContent = 'Something went wrong while connecting your bank.';
@@ -99,6 +171,7 @@ linkButton.addEventListener('click', async () => {
   statusEl.textContent = 'Connecting…';
   statusCard.classList.add('hidden');
   balanceContainer.classList.add('hidden');
+  latestAccounts = null;
 
   try {
     const linkToken = await createLinkToken();
