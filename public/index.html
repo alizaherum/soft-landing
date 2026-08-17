@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Soft Landing</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>Soft Landing</h1>
+    <p class="subtitle">Connect your bank to see where you stand.</p>
+
+    <button id="link-button">Connect your bank</button>
+    <p id="status" role="status"></p>
+
+    <section id="balance-container" class="hidden">
+      <h2>Account Balances</h2>
+      <ul id="balance-list"></ul>
+    </section>
+  </main>
+
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
