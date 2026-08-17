@@ -48,44 +48,61 @@ function renderBalances(accounts) {
   balanceContainer.classList.remove('hidden');
 }
 
+function buildHandler(linkToken, receivedRedirectUri) {
+  return Plaid.create({
+    token: linkToken,
+    receivedRedirectUri,
+    onSuccess: async (publicToken) => {
+      try {
+        statusEl.textContent = 'Fetching your balance…';
+        await exchangePublicToken(publicToken);
+        const accounts = await fetchBalance();
+        renderBalances(accounts);
+        statusEl.textContent = 'Connected';
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Something went wrong while fetching your balance.';
+      } finally {
+        linkButton.disabled = false;
+        sessionStorage.removeItem('plaid_link_token');
+      }
+    },
+    onExit: (err) => {
+      linkButton.disabled = false;
+      sessionStorage.removeItem('plaid_link_token');
+      if (err) {
+        console.error(err);
+        statusEl.textContent = 'Connection was not completed.';
+      } else {
+        statusEl.textContent = '';
+      }
+    },
+  });
+}
+
 linkButton.addEventListener('click', async () => {
   linkButton.disabled = true;
   statusEl.textContent = 'Connecting…';
 
   try {
     const linkToken = await createLinkToken();
-
-    const handler = Plaid.create({
-      token: linkToken,
-      onSuccess: async (publicToken) => {
-        try {
-          statusEl.textContent = 'Fetching your balance…';
-          await exchangePublicToken(publicToken);
-          const accounts = await fetchBalance();
-          renderBalances(accounts);
-          statusEl.textContent = 'Connected';
-        } catch (err) {
-          console.error(err);
-          statusEl.textContent = 'Something went wrong while fetching your balance.';
-        } finally {
-          linkButton.disabled = false;
-        }
-      },
-      onExit: (err) => {
-        linkButton.disabled = false;
-        if (err) {
-          console.error(err);
-          statusEl.textContent = 'Connection was not completed.';
-        } else {
-          statusEl.textContent = '';
-        }
-      },
-    });
-
-    handler.open();
+    sessionStorage.setItem('plaid_link_token', linkToken);
+    buildHandler(linkToken).open();
   } catch (err) {
     console.error(err);
     statusEl.textContent = 'Could not start the connection. Please try again.';
     linkButton.disabled = false;
   }
 });
+
+// If Plaid redirected back here after an OAuth bank hand-off (UK/Open Banking
+// institutions always redirect, even in sandbox), resume the same Link session
+// using the token we stashed before the redirect.
+if (window.location.search.includes('oauth_state_id=')) {
+  const linkToken = sessionStorage.getItem('plaid_link_token');
+  if (linkToken) {
+    statusEl.textContent = 'Finishing connection…';
+    linkButton.disabled = true;
+    buildHandler(linkToken, window.location.href).open();
+  }
+}
