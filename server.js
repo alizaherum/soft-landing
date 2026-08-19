@@ -26,14 +26,21 @@ let accessToken = null;
 
 app.post('/api/create_link_token', async (req, res) => {
   try {
-    const response = await plaidClient.linkTokenCreate({
+    // Native Link (mobile) resolves OAuth via the app's registered bundle ID /
+    // package name, not a redirect_uri — sending one would point it at the
+    // web app's localhost URL, which the mobile SDK can't use.
+    const isMobile = req.body?.platform === 'mobile';
+    const config = {
       user: { client_user_id: `user-${Date.now()}` },
       client_name: 'Soft Landing',
       products: [Products.Auth, Products.Transactions],
       country_codes: [CountryCode.Gb],
       language: 'en',
-      redirect_uri: process.env.PLAID_REDIRECT_URI,
-    });
+    };
+    if (!isMobile) {
+      config.redirect_uri = process.env.PLAID_REDIRECT_URI;
+    }
+    const response = await plaidClient.linkTokenCreate(config);
     res.json({ link_token: response.data.link_token });
   } catch (err) {
     console.error(err.response?.data || err);

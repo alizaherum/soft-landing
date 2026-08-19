@@ -63,7 +63,11 @@ saveThresholdsButton.addEventListener('click', () => {
 });
 
 async function createLinkToken() {
-  const response = await fetch('/api/create_link_token', { method: 'POST' });
+  const response = await fetch('/api/create_link_token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform: 'web' }),
+  });
   if (!response.ok) throw new Error('Failed to create link token');
   const data = await response.json();
   return data.link_token;
