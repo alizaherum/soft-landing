@@ -1,10 +1,10 @@
 {
-  "name": "e-commerce-risk-analytics-platform",
+  "name": "soft-landing",
   "version": "1.0.0",
-  "description": "Comprehensive data solution that analyzes seller behavior and transaction data to identify high-risk or fraudulent sellers, predict customer satisfaction trends, and optimize operational decisions.",
-  "main": "index.js",
+  "description": "Soft Landing - connect your bank account and see your balance at a glance.",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
