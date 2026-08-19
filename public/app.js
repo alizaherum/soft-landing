@@ -14,17 +14,24 @@ const THRESHOLDS_KEY = 'soft_landing_thresholds';
 const DEFAULT_THRESHOLDS = { low: 100, comfortable: 500 };
 
 let latestAccounts = null;
+// Suggested thresholds estimated from recent spending. Only used until the
+// user saves their own — never persisted, since a saved choice always wins.
+let smartDefaults = null;
 
-function getThresholds() {
+function getStoredThresholds() {
   try {
     const stored = JSON.parse(localStorage.getItem(THRESHOLDS_KEY));
     if (stored && Number.isFinite(stored.low) && Number.isFinite(stored.comfortable)) {
       return stored;
     }
   } catch (err) {
-    // fall through to defaults
+    // fall through
   }
-  return DEFAULT_THRESHOLDS;
+  return null;
+}
+
+function getThresholds() {
+  return getStoredThresholds() || smartDefaults || DEFAULT_THRESHOLDS;
 }
 
 function applyThresholdsToInputs(thresholds) {
@@ -76,6 +83,12 @@ async function fetchBalance() {
   if (!response.ok) throw new Error('Failed to fetch balance');
   const data = await response.json();
   return data.accounts;
+}
+
+async function fetchSpendingEstimate() {
+  const response = await fetch('/api/spending-estimate');
+  if (!response.ok) return null;
+  return response.json();
 }
 
 function formatCurrency(amount, isoCurrencyCode) {
@@ -144,6 +157,21 @@ function buildHandler(linkToken, receivedRedirectUri) {
         statusEl.textContent = '';
         await exchangePublicToken(publicToken);
         latestAccounts = await fetchBalance();
+
+        if (!getStoredThresholds()) {
+          try {
+            const estimate = await fetchSpendingEstimate();
+            if (estimate && estimate.low > 0 && estimate.low < estimate.comfortable) {
+              smartDefaults = estimate;
+              applyThresholdsToInputs(smartDefaults);
+              thresholdFeedback.textContent = 'Suggested from your recent spending — adjust anytime.';
+            }
+          } catch (err) {
+            console.error(err);
+            // Smart defaults are a bonus, not required — silently keep the fallback.
+          }
+        }
+
         updateStatusCard(latestAccounts);
       } catch (err) {
         console.error(err);
@@ -172,6 +200,7 @@ linkButton.addEventListener('click', async () => {
   statusCard.classList.add('hidden');
   balanceContainer.classList.add('hidden');
   latestAccounts = null;
+  smartDefaults = null;
 
   try {
     const linkToken = await createLinkToken();

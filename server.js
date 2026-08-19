@@ -29,7 +29,7 @@ app.post('/api/create_link_token', async (req, res) => {
     const response = await plaidClient.linkTokenCreate({
       user: { client_user_id: `user-${Date.now()}` },
       client_name: 'Soft Landing',
-      products: [Products.Auth],
+      products: [Products.Auth, Products.Transactions],
       country_codes: [CountryCode.Gb],
       language: 'en',
       redirect_uri: process.env.PLAID_REDIRECT_URI,
@@ -66,6 +66,38 @@ app.get('/api/balance', async (req, res) => {
   } catch (err) {
     console.error(err.response?.data || err);
     res.status(500).json({ error: 'Failed to fetch balance' });
+  }
+});
+
+app.get('/api/spending-estimate', async (req, res) => {
+  if (!accessToken) {
+    return res.status(400).json({ error: 'No linked bank account yet' });
+  }
+  try {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    const toIsoDate = (date) => date.toISOString().slice(0, 10);
+
+    const response = await plaidClient.transactionsGet({
+      access_token: accessToken,
+      start_date: toIsoDate(startDate),
+      end_date: toIsoDate(endDate),
+    });
+
+    // Positive amount = money leaving the account (a spend), per Plaid's convention.
+    const totalSpend = response.data.transactions
+      .filter((txn) => !txn.pending && txn.amount > 0)
+      .reduce((sum, txn) => sum + txn.amount, 0);
+
+    const dailyAverage = totalSpend / 30;
+    res.json({
+      low: Math.round(dailyAverage * 7),
+      comfortable: Math.round(dailyAverage * 30),
+    });
+  } catch (err) {
+    console.error(err.response?.data || err);
+    res.status(500).json({ error: 'Failed to estimate spending' });
   }
 });
 
